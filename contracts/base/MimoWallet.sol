@@ -47,4 +47,42 @@ contract MimoWallet is
         _disableInitializers();
     }
 
+    /**
+     * @dev The _entryPoint member is immutable, to reduce gas consumption.  To upgrade EntryPoint,
+     * a new implementation of SimpleAccount must be deployed with the new EntryPoint address, then upgrading
+     * the implementation by calling `upgradeTo()`
+     */
+    function initialize(
+        address anOwner,
+        address[] guardians
+    ) public virtual initializer {
+        _initialize(anOwner, guardians);
+    }
+
+    function _initialize(
+        address anOwner,
+        address[] guardians
+    ) internal virtual {
+        grantRole(DEFAULT_ADMIN_ROLE, anOwner);
+        for (uint i = 0; i < guardians.length; i++) {
+            grantRole(GUARDIAN_ROLE, guardians[i]);
+        }
+        emit SimpleAccountInitialized(_entryPoint, owner);
+    }
+
+    function _onlyOwner() internal view {
+        //directly from EOA owner, or through the account itself (which gets redirected through execute())
+        require(
+            hasRole(DEFAULT_ADMIN_ROLE, msg.sender) ||
+                msg.sender == address(this),
+            "only owner"
+        );
+    }
+
+    function _authorizeUpgrade(
+        address newImplementation
+    ) internal view override {
+        (newImplementation);
+        _onlyOwner();
+    }
 }

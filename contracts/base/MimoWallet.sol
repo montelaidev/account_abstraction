@@ -79,6 +79,173 @@ contract MimoWallet is
         );
     }
 
+    function addOwner(address newOwner) external onlyOwner {
+        grantRole(DEFAULT_ADMIN_ROLE, newOwner);
+    }
+
+    function removeOwner(address oldOwner) external onlyOwner {
+        revokeRole(DEFAULT_ADMIN_ROLE, oldOwner);
+    }
+
+    function addGuardian(address newGuardian) external onlyOwner {
+        grantRole(GUARDIAN_ROLE, newOwner);
+    }
+
+    function removeGuardian(address oldGuardian) external onlyOwner {
+        revokeRole(GUARDIAN_ROLE, oldGuardian);
+    }
+
+    // Require the function call went through EntryPoint or owner
+    function _requireFromEntryPointOrAuthorized() internal view {
+        require(
+            msg.sender == address(entryPoint()) ||
+                hasRole(DEFAULT_ADMIN_ROLE, msg.sender),
+            "account: not Owner or EntryPoint"
+        );
+    }
+
+    /// @inheritdoc BaseAccount
+    function nonce() public view virtual override returns (uint256) {
+        return _nonce;
+    }
+
+    /// @inheritdoc BaseAccount
+    function entryPoint() public view virtual override returns (IEntryPoint) {
+        return _entryPoint;
+    }
+
+    function threshold() public override views returns (uint256) {
+        return 1;
+    }
+
+    /**
+     * execute a transaction (called directly from owner, or by entryPoint)
+     */
+    function execute(
+        address dest,
+        uint256 value,
+        bytes calldata func
+    ) external {
+        _requireFromEntryPointOrAuthorized();
+        _call(dest, value, func);
+    }
+
+    /**
+     * execute a sequence of transactions
+     */
+    function executeBatch(
+        address[] calldata dest,
+        bytes[] calldata func
+    ) external {
+        _requireFromEntryPointOrAuthorized();
+        require(dest.length == func.length, "wrong array lengths");
+        for (uint256 i = 0; i < dest.length; i++) {
+            _call(dest[i], 0, func[i]);
+        }
+    }
+
+    function _validateSignature(
+        UserOperation userOp,
+        bytes32 userOpHash
+    ) internal overrides returns (uint256 validationData) {
+        bytes32 hash = userOpHash.toEthSignedMessageHash();
+        // decode signature to SignatureData
+        Signatures memory signatures = userOp.signature.decodeSignature();
+
+        // check if signature type is valid
+        // type 1 = single admin
+        // type 2 = mix of admin and guardian meeting a threshold
+        require(
+            signatures.version == 1 || signatures.version == 2,
+            "Invalid Signature Version"
+        );
+        require(signatures.signatureData.length > 0, "Missing Signature");
+
+        if (signatures.version == 1) {
+            require(
+                signatures.signatureData.length >= 1,
+                "Invalid Signature Count"
+            );
+            if (owner != hash.recover(userOp.signature))
+                return SIG_VALIDATION_FAILED;
+            return 0;
+        } else {
+            uint8 signatureCount = 0;
+            uint256 length = signatures.signatureData.length;
+            for (uint256 n = 0; n < length; ) {
+                require(
+                    isValidSignatureNow(
+                        signatures.signatureData[n].signature,
+                        userOpHash
+                    ),
+                    "Invalid Signature"
+                );
+                signatureCount += n;
+                unchecked {
+                    n++;
+                }
+            }
+            if (signatureCount >= threshold) {
+                return 0;
+            } else {
+                return SIG_VALIDATION_FAILED;
+            }
+        }
+    }
+
+    function _validateSignature(
+        SignatureData memory _signatureData,
+        bytes32 userOpHash
+    ) internal returns (bool) {
+        address signer = _signatureData;
+        // check if signature is valid with open zeppellin
+        // bool isValid = isValidSignatureNow(_signatureData, userOpHash);
+        return true;
+    }
+
+    function _validateAdminSignature(
+        Signature _signature,
+        bytes32 userOpHash
+    ) internal returns (bool) {
+        address signer = _signature.signature;
+        // check if signature is valid with open zeppellin
+        bool isValid = isValidSignatureNow(_signature, userOpHash);
+        return true;
+    }
+
+    /// implement template method of BaseAccount
+    function _validateAndUpdateNonce(
+        UserOperation calldata userOp
+    ) internal override {
+        require(_nonce++ == userOp.nonce, "account: invalid nonce");
+    }
+
+    /**
+     * check current account deposit in the entryPoint
+     */
+    function getDeposit() public view returns (uint256) {
+        return entryPoint().balanceOf(address(this));
+    }
+
+    /**
+     * deposit more funds for this account in the entryPoint
+     */
+    function addDeposit() public payable {
+        entryPoint().depositTo{value: msg.value}(address(this));
+    }
+
+    /**
+     * withdraw value from the account's deposit
+     * @param withdrawAddress target to send to
+     * @param amount to withdraw
+     */
+    function withdrawDepositTo(
+        address payable withdrawAddress,
+        uint256 amount
+    ) public onlyOwner {
+        entryPoint().withdrawTo(withdrawAddress, amount);
+    }
+
     function _authorizeUpgrade(
         address newImplementation
     ) internal view override {

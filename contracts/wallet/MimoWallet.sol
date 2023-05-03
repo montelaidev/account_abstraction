@@ -7,7 +7,7 @@ import {IERC1271} from "@openzeppelin/contracts/interfaces/IERC1271.sol";
 import "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
-import {WalletSignatures} from "./utils/Signature.sol";
+import {WalletSignatures, SignatureData, Signatures} from "./utils/Signature.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
@@ -39,6 +39,8 @@ contract MimoWallet is
     bytes4 internal constant MAGICVALUE = 0x1626ba7e;
     bytes32 public constant GUARDIAN_ROLE = keccak256("GUARDIAN_ROLE");
 
+    event MimoAccountInitialized(address _entrypoint, address _owner);
+
     // solhint-disable-next-line no-empty-blocks
     receive() external payable {}
 
@@ -54,20 +56,20 @@ contract MimoWallet is
      */
     function initialize(
         address anOwner,
-        address[] guardians
+        address[] calldata guardians
     ) public virtual initializer {
         _initialize(anOwner, guardians);
     }
 
     function _initialize(
         address anOwner,
-        address[] guardians
+        address[] calldata guardians
     ) internal virtual {
         grantRole(DEFAULT_ADMIN_ROLE, anOwner);
         for (uint i = 0; i < guardians.length; i++) {
             grantRole(GUARDIAN_ROLE, guardians[i]);
         }
-        emit SimpleAccountInitialized(_entryPoint, owner);
+        emit MimoAccountInitialized(address(_entryPoint), anOwner);
     }
 
     function _onlyOwner() internal view {
@@ -91,7 +93,7 @@ contract MimoWallet is
 
     function addGuardian(address newGuardian) external {
         _onlyOwner();
-        grantRole(GUARDIAN_ROLE, newOwner);
+        grantRole(GUARDIAN_ROLE, newGuardian);
     }
 
     function removeGuardian(address oldGuardian) external {
@@ -118,8 +120,17 @@ contract MimoWallet is
         return _entryPoint;
     }
 
-    function threshold() public override views returns (uint256) {
+    function threshold() public view returns (uint256) {
         return _threshold;
+    }
+
+    function _call(address target, uint256 value, bytes memory data) internal {
+        (bool success, bytes memory result) = target.call{value: value}(data);
+        if (!success) {
+            assembly {
+                revert(add(result, 32), mload(result))
+            }
+        }
     }
 
     /**
@@ -149,9 +160,9 @@ contract MimoWallet is
     }
 
     function _validateSignature(
-        UserOperation userOp,
+        UserOperation calldata userOp,
         bytes32 userOpHash
-    ) internal overrides returns (uint256 validationData) {
+    ) internal override returns (uint256 validationData) {
         bytes32 hash = userOpHash.toEthSignedMessageHash();
         // decode signature to SignatureData
         Signatures memory signatures = userOp.signature.decodeSignature();
@@ -165,55 +176,55 @@ contract MimoWallet is
         );
         require(signatures.signatureData.length > 0, "Missing Signature");
 
+        // TODO - validate validTill and validAfter
         if (signatures.version == 1) {
             require(
-                signatures.signatureData.length >= 1,
+                signatures.signatureData.length != 1,
                 "Invalid Signature Count"
             );
-            if (owner != hash.recover(userOp.signature))
-                return SIG_VALIDATION_FAILED;
-            return 0;
+            _validateAdminSignature(signatures.signatureData[0], userOpHash);
         } else {
-            uint8 signatureCount = 0;
-            uint256 length = signatures.signatureData.length;
-            for (uint256 n = 0; n < length; ) {
-                require(
-                    isValidSignatureNow(
-                        signatures.signatureData[n].signature,
-                        userOpHash
-                    ),
-                    "Invalid Signature"
-                );
+            _validateSignatures(signatures.signatureData, userOpHash);
+        }
+
+        return 0;
+    }
+
+    function _validateSignatures(
+        SignatureData[] memory _signatureData,
+        bytes32 userOpHash
+    ) internal returns (bool) {
+        uint8 signatureCount = 0;
+        uint256 length = _signatureData.length;
+        for (uint256 n = 0; n < length; ) {
+            if (
+                hasRole(
+                    GUARDIAN_ROLE,
+                    userOpHash.recover(_signatureData[n].signature)
+                ) ||
+                hasRole(
+                    DEFAULT_ADMIN_ROLE,
+                    userOpHash.recover(_signatureData[n].signature)
+                )
+            ) {
                 signatureCount += n;
                 unchecked {
                     n++;
                 }
             }
-            if (signatureCount >= threshold) {
-                return 0;
-            } else {
-                return SIG_VALIDATION_FAILED;
-            }
         }
-    }
-
-    function _validateSignature(
-        SignatureData memory _signatureData,
-        bytes32 userOpHash
-    ) internal returns (bool) {
-        address signer = _signatureData;
-        // check if signature is valid with open zeppellin
-        // bool isValid = isValidSignatureNow(_signatureData, userOpHash);
+        require(signatureCount < threshold, SIG_VALIDATION_FAILED);
         return true;
     }
 
     function _validateAdminSignature(
-        Signature _signature,
+        SignatureData memory _signatureData,
         bytes32 userOpHash
     ) internal returns (bool) {
-        address signer = _signature.signature;
-        // check if signature is valid with open zeppellin
-        bool isValid = isValidSignatureNow(_signature, userOpHash);
+        require(
+            !hasRole(DEFAULT_ADMIN_ROLE, userOpHash.recover(_signatureData)),
+            SIG_VALIDATION_FAILED
+        );
         return true;
     }
 
@@ -246,7 +257,8 @@ contract MimoWallet is
     function withdrawDepositTo(
         address payable withdrawAddress,
         uint256 amount
-    ) public onlyOwner {
+    ) public {
+        _onlyOwner();
         entryPoint().withdrawTo(withdrawAddress, amount);
     }
 

@@ -2,6 +2,9 @@
 pragma solidity 0.8.17;
 
 import {MimoWallet} from "./MimoWallet.sol";
+import {IEntryPoint} from "../aa-4337/interfaces/IEntryPoint.sol";
+import "@openzeppelin/contracts/utils/Create2.sol";
+import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract MimoWalletFactory {
     MimoWallet public immutable accountImplementation;
@@ -19,17 +22,17 @@ contract MimoWalletFactory {
     function createAccount(
         address owner,
         uint256 salt
-    ) public returns (SimpleAccount ret) {
+    ) public returns (MimoWallet ret) {
         address addr = getAddress(owner, salt);
         uint codeSize = addr.code.length;
         if (codeSize > 0) {
             return MimoWallet(payable(addr));
         }
-        ret = SimpleAccount(
+        ret = MimoWallet(
             payable(
                 new ERC1967Proxy{salt: bytes32(salt)}(
                     address(accountImplementation),
-                    abi.encodeCall(SimpleAccount.initialize, (owner))
+                    abi.encodeCall(MimoWallet.initialize, (owner))
                 )
             )
         );
@@ -50,7 +53,7 @@ contract MimoWalletFactory {
                         type(ERC1967Proxy).creationCode,
                         abi.encode(
                             address(accountImplementation),
-                            abi.encodeCall(SimpleAccount.initialize, (owner))
+                            abi.encodeCall(MimoWallet.initialize, (owner))
                         )
                     )
                 )

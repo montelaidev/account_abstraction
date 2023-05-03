@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.17;
 
 import {UserOperation} from "../../aa-4337/interfaces/UserOperation.sol";
@@ -19,16 +20,16 @@ struct SignatureData {
 
 library WalletSignatures {
     function decodeSignature(
-        UserOperation userOp
+        UserOperation memory userOp
     ) internal pure returns (Signatures memory) {
         return decodeSignature(userOp.signature);
     }
 
     function decodeSignature(
-        bytes memory signatures
+        bytes memory _signatures
     ) internal pure returns (Signatures memory) {
         (uint8 version, Signatures[] memory signatures) = abi.decode(
-            signatures,
+            _signatures,
             (uint8, Signatures[])
         );
         return Signatures(version, signatures);

@@ -21,7 +21,8 @@ contract MimoWalletFactory {
      */
     function createAccount(
         address owner,
-        uint256 salt
+        uint256 salt,
+        address[] memory guardians
     ) public returns (MimoWallet ret) {
         address addr = getAddress(owner, salt);
         uint codeSize = addr.code.length;
@@ -32,7 +33,7 @@ contract MimoWalletFactory {
             payable(
                 new ERC1967Proxy{salt: bytes32(salt)}(
                     address(accountImplementation),
-                    abi.encodeCall(MimoWallet.initialize, (owner))
+                    abi.encodeCall(MimoWallet.initialize, (owner, guardians))
                 )
             )
         );
@@ -45,6 +46,7 @@ contract MimoWalletFactory {
         address owner,
         uint256 salt
     ) public view returns (address) {
+        address[] memory guardians;
         return
             Create2.computeAddress(
                 bytes32(salt),
@@ -53,7 +55,10 @@ contract MimoWalletFactory {
                         type(ERC1967Proxy).creationCode,
                         abi.encode(
                             address(accountImplementation),
-                            abi.encodeCall(MimoWallet.initialize, (owner))
+                            abi.encodeCall(
+                                MimoWallet.initialize,
+                                (owner, guardians)
+                            )
                         )
                     )
                 )

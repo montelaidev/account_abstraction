@@ -17,7 +17,7 @@ contract MimoWallet is
     BaseAccount,
     UUPSUpgradeable,
     Initializable,
-    IERC1271,
+    // IERC1271,
     AccessControl
 {
     using WalletSignatures for bytes;
@@ -65,7 +65,7 @@ contract MimoWallet is
         address anOwner,
         address[] calldata guardians
     ) internal virtual {
-        grantRole(DEFAULT_ADMIN_ROLE, anOwner);
+        _setupRole(DEFAULT_ADMIN_ROLE, anOwner);
         for (uint i = 0; i < guardians.length; i++) {
             grantRole(GUARDIAN_ROLE, guardians[i]);
         }
@@ -162,8 +162,8 @@ contract MimoWallet is
     function _validateSignature(
         UserOperation calldata userOp,
         bytes32 userOpHash
-    ) internal override returns (uint256 validationData) {
-        bytes32 hash = userOpHash.toEthSignedMessageHash();
+    ) internal view override returns (uint256 validationData) {
+        bytes32 operationHash = userOpHash.toEthSignedMessageHash();
         // decode signature to SignatureData
         Signatures memory signatures = userOp.signature.decodeSignature();
 
@@ -182,9 +182,9 @@ contract MimoWallet is
                 signatures.signatureData.length != 1,
                 "Invalid Signature Count"
             );
-            _validateAdminSignature(signatures.signatureData[0], userOpHash);
+            _validateAdminSignature(signatures.signatureData[0], operationHash);
         } else {
-            _validateSignatures(signatures.signatureData, userOpHash);
+            _validateSignatures(signatures.signatureData, operationHash);
         }
 
         return 0;
@@ -193,37 +193,44 @@ contract MimoWallet is
     function _validateSignatures(
         SignatureData[] memory _signatureData,
         bytes32 userOpHash
-    ) internal returns (bool) {
-        uint8 signatureCount = 0;
+    ) internal view returns (bool) {
+        require(
+            _signatureData.length < _threshold,
+            "Not enough valid signatures"
+        );
+        uint256 signatureCount = 0;
         uint256 length = _signatureData.length;
         for (uint256 n = 0; n < length; ) {
-            if (
+            require(
                 hasRole(
                     GUARDIAN_ROLE,
                     userOpHash.recover(_signatureData[n].signature)
                 ) ||
-                hasRole(
-                    DEFAULT_ADMIN_ROLE,
-                    userOpHash.recover(_signatureData[n].signature)
-                )
-            ) {
-                signatureCount += n;
-                unchecked {
-                    n++;
-                }
+                    hasRole(
+                        DEFAULT_ADMIN_ROLE,
+                        userOpHash.recover(_signatureData[n].signature)
+                    ),
+                "Invalid Signature"
+            );
+
+            signatureCount += n;
+            unchecked {
+                n++;
             }
         }
-        require(signatureCount < threshold, SIG_VALIDATION_FAILED);
         return true;
     }
 
     function _validateAdminSignature(
         SignatureData memory _signatureData,
         bytes32 userOpHash
-    ) internal returns (bool) {
+    ) internal view returns (bool) {
         require(
-            !hasRole(DEFAULT_ADMIN_ROLE, userOpHash.recover(_signatureData)),
-            SIG_VALIDATION_FAILED
+            hasRole(
+                DEFAULT_ADMIN_ROLE,
+                userOpHash.recover(_signatureData.signature)
+            ),
+            "Invalid Signature"
         );
         return true;
     }
@@ -232,7 +239,7 @@ contract MimoWallet is
     function _validateAndUpdateNonce(
         UserOperation calldata userOp
     ) internal override {
-        require(_nonce++ == userOp.nonce, "account: invalid nonce");
+        require(++_nonce == userOp.nonce, "account: invalid nonce");
     }
 
     /**

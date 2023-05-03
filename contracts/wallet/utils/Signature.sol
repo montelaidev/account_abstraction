@@ -28,10 +28,10 @@ library WalletSignatures {
     function decodeSignature(
         bytes memory _signatures
     ) internal pure returns (Signatures memory) {
-        (uint8 version, Signatures[] memory signatures) = abi.decode(
+        (uint8 version, SignatureData[] memory signatureData) = abi.decode(
             _signatures,
-            (uint8, Signatures[])
+            (uint8, SignatureData[])
         );
-        return Signatures(version, signatures);
+        return Signatures(version, signatureData);
     }
 }

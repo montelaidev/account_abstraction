@@ -1,29 +1,29 @@
 // SPDX-License-Identifier: AGPL-3.0
-pragma solidity 0.8.19;
+pragma solidity 0.8.17;
 
 import {BaseAccount} from "../aa-4337/core/BaseAccount.sol";
 import {Exec} from "../aa-4337/utils/Exec.sol";
-import {ERC1271} from "@openzeppelin/contracts/interfaces/IERC1271.sol";
+import {IERC1271} from "@openzeppelin/contracts/interfaces/IERC1271.sol";
 import "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
-import {WalletSignature} from "./utils/Signature.sol";
+import {WalletSignatures} from "./utils/Signature.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
+import "../aa-4337/interfaces/IEntryPoint.sol";
 
 contract MimoWallet is
     BaseAccount,
     UUPSUpgradeable,
     Initializable,
-    ERC1271,
+    IERC1271,
     AccessControl
 {
-    using WalletSignature for bytes;
-    using WalletSignature for bytes32;
+    using WalletSignatures for bytes;
+    using WalletSignatures for bytes32;
     using ECDSA for bytes32;
     using Exec for address;
-    using Counters for Counters.counter;
 
     //filler member, to push the nonce and owner to the same slot
     // the "Initializeble" class takes 2 bytes in the first slot
@@ -34,7 +34,7 @@ contract MimoWallet is
 
     IEntryPoint private immutable _entryPoint;
 
-    uint8 public threshold = 1;
+    uint8 public _threshold = 1;
 
     bytes4 internal constant MAGICVALUE = 0x1626ba7e;
     bytes32 public constant GUARDIAN_ROLE = keccak256("GUARDIAN_ROLE");
@@ -79,19 +79,23 @@ contract MimoWallet is
         );
     }
 
-    function addOwner(address newOwner) external onlyOwner {
+    function addOwner(address newOwner) external {
+        _onlyOwner();
         grantRole(DEFAULT_ADMIN_ROLE, newOwner);
     }
 
-    function removeOwner(address oldOwner) external onlyOwner {
+    function removeOwner(address oldOwner) external {
+        _onlyOwner();
         revokeRole(DEFAULT_ADMIN_ROLE, oldOwner);
     }
 
-    function addGuardian(address newGuardian) external onlyOwner {
+    function addGuardian(address newGuardian) external {
+        _onlyOwner();
         grantRole(GUARDIAN_ROLE, newOwner);
     }
 
-    function removeGuardian(address oldGuardian) external onlyOwner {
+    function removeGuardian(address oldGuardian) external {
+        _onlyOwner();
         revokeRole(GUARDIAN_ROLE, oldGuardian);
     }
 
@@ -115,7 +119,7 @@ contract MimoWallet is
     }
 
     function threshold() public override views returns (uint256) {
-        return 1;
+        return _threshold;
     }
 
     /**

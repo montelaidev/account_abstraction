@@ -147,6 +147,14 @@ describe("AA Tests", function () {
     };
   }
 
+  describe("Entrypoint", () => {
+    it("should be able to deploy new account with initcode", async () => {});
+
+    it("should be able to verify a signature", async () => {});
+
+    it("should be able to execute handleOps", async () => {});
+  });
+
   describe("MimoWalletFactory", () => {
     it("should deploy to a deterministic address", async () => {
       const { factory, accountOwner } = await deployFixtures();
@@ -343,4 +351,49 @@ describe("AA Tests", function () {
 
         expect(result.eq(0)).to.be.true;
       });
+    });
+  });
+
+  describe("Action Token accountOwnerWalletPaymaster", () => {
+    describe("validatePaymasterUserOp", () => {
+      it("validate paymaster successfully", async () => {
+        const {
+          entryPoint,
+          tokenPaymaster,
+          mimoAccountWallet,
+          accountOwnerWallet,
+          swapActionToken,
+        } = await deployFixtures();
+        const userOp = await fillAndSign(
+          {
+            sender: mimoAccountWallet.address,
+            paymasterAndData: hexConcat([
+              tokenPaymaster.address,
+              hexZeroPad(swapActionToken.address, 32),
+              hexZeroPad(hexlify(1), 32),
+            ]),
+          },
+          accountOwnerWallet,
+          entryPoint
+        );
+        console.log(userOp);
+        console.log(
+          await entryPoint.callStatic
+            .simulateValidation(userOp)
+            .catch(simulationResultCatch)
+        );
+      });
+    });
+  });
 });
+
+/**
+ * process exception of ValidationResult
+ * usage: entryPoint.simulationResult(..).catch(simulationResultCatch)
+ */
+export function simulationResultCatch(e: any): any {
+  if (e.errorName !== "ValidationResult") {
+    throw e;
+  }
+  return e.errorArgs;
+}

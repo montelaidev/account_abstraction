@@ -201,7 +201,7 @@ describe("AA Tests", function () {
     });
   });
 
-  describe.only("MimoAccountWallet", () => {
+  describe("MimoAccountWallet", () => {
     it("admin can call execute or executeBatch", async () => {
       const { mimoAccountWallet, accountOwner, guardian1 } =
         await deployFixtures();
@@ -297,7 +297,7 @@ describe("AA Tests", function () {
       expect(balanceAfter.sub(balanceBefore)).to.equal(1000);
     });
 
-    describe.only("validateSignatures", () => {
+    describe("validateSignatures", () => {
       const actualGasPrice = 1e9;
       it("should be able to validate an admin signature", async () => {
         // gets unused signer

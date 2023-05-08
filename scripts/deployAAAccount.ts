@@ -27,7 +27,7 @@ async function main() {
 
   console.log(`MimoWallet deployed to ${mimoAccountAddress}`);
   fs.writeFileSync(
-    "../deployments.json",
+    "./deployments.json",
     JSON.stringify({
       ...deployments,
       aaInstance: mimoAccountAddress,

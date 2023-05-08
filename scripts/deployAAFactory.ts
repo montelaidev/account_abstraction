@@ -13,7 +13,7 @@ async function main() {
 
   console.log(`MimoWalletFactory deployed to ${mimoWalletFactory.address}`);
   fs.writeFileSync(
-    "../deployments.json",
+    "./deployments.json",
     JSON.stringify({
       ...deployments,
       aaFactory: mimoWalletFactory.address,

@@ -12,6 +12,7 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import "../aa-4337/interfaces/IEntryPoint.sol";
+import "hardhat/console.sol";
 
 contract MimoWallet is
     BaseAccount,
@@ -24,6 +25,7 @@ contract MimoWallet is
     using WalletSignatures for bytes32;
     using ECDSA for bytes32;
     using Exec for address;
+    using UserOperationLib for UserOperation;
 
     //filler member, to push the nonce and owner to the same slot
     // the "Initializeble" class takes 2 bytes in the first slot
@@ -77,7 +79,7 @@ contract MimoWallet is
         require(
             hasRole(DEFAULT_ADMIN_ROLE, msg.sender) ||
                 msg.sender == address(this),
-            "only owner"
+            "MimoAccountWallet: unauthorized"
         );
     }
 
@@ -103,10 +105,12 @@ contract MimoWallet is
 
     // Require the function call went through EntryPoint or owner
     function _requireFromEntryPointOrAuthorized() internal view {
+        console.log("msg.sender", msg.sender);
+        console.log(hasRole(DEFAULT_ADMIN_ROLE, msg.sender));
         require(
             msg.sender == address(entryPoint()) ||
                 hasRole(DEFAULT_ADMIN_ROLE, msg.sender),
-            "account: not Owner or EntryPoint"
+            "MimoAccountWallet: not Owner or EntryPoint"
         );
     }
 
@@ -150,12 +154,16 @@ contract MimoWallet is
      */
     function executeBatch(
         address[] calldata dest,
+        uint256[] calldata value,
         bytes[] calldata func
     ) external {
         _requireFromEntryPointOrAuthorized();
-        require(dest.length == func.length, "wrong array lengths");
+        require(
+            dest.length == func.length || dest.length == value.length,
+            "wrong array lengths"
+        );
         for (uint256 i = 0; i < dest.length; i++) {
-            _call(dest[i], 0, func[i]);
+            _call(dest[i], value[i], func[i]);
         }
     }
 
@@ -163,29 +171,68 @@ contract MimoWallet is
         UserOperation calldata userOp,
         bytes32 userOpHash
     ) internal view override returns (uint256 validationData) {
-        bytes32 operationHash = userOpHash.toEthSignedMessageHash();
-        // decode signature to SignatureData
-        Signatures memory signatures = userOp.signature.decodeSignature();
+        console.log("before operationhash");
+        console.log(block.chainid, address(_entryPoint));
+        // console.logBytes32(userOp.hash());
+        // console.log(userOp.sender);
+        // console.log(userOp.nonce);
+        // console.logBytes(userOp.initCode);
+        // console.logBytes(userOp.callData);
+        // console.log(userOp.callGasLimit);
+        // console.log(userOp.verificationGasLimit);
+        // console.log(userOp.preVerificationGas);
+        // console.log(userOp.maxFeePerGas);
+        // console.log(userOp.maxPriorityFeePerGas);
+        // console.logBytes(userOp.paymasterAndData);
 
+        // validate taht the entrypoint address and the chain id is the same as teh one in the hash
+        bytes32 operationHash = keccak256(
+            abi.encode(userOp.hash(), address(_entryPoint), block.chainid)
+        );
+        console.logBytes32(operationHash);
+        console.log("chaindId in evm", block.chainid);
+        // console.log("operationHash");
+        // console.logBytes32(operationHash);
+        // console.logBytes32(userOpHash);
+
+        require(userOpHash == operationHash, "Invalid Operation Hash");
+
+        bytes32 hash = userOpHash.toEthSignedMessageHash();
+        console.log("eth signed hash");
+        console.logBytes32(hash);
+        console.log("recovered address", hash.recover(userOp.signature));
+        console.log(
+            "has role",
+            hasRole(DEFAULT_ADMIN_ROLE, hash.recover(userOp.signature))
+        );
+        if (!hasRole(DEFAULT_ADMIN_ROLE, hash.recover(userOp.signature)))
+            return SIG_VALIDATION_FAILED;
+
+        // TODO: fix multi signatures
+        // decode signature to SignatureData
+        // Signatures memory signatures = userOp.signature.decodeSignature();
+
+        // console.log("after signatures decode");
         // check if signature type is valid
         // type 1 = single admin
         // type 2 = mix of admin and guardian meeting a threshold
-        require(
-            signatures.version == 1 || signatures.version == 2,
-            "Invalid Signature Version"
-        );
-        require(signatures.signatureData.length > 0, "Missing Signature");
+        // require(
+        //     signatures.version == 1 || signatures.version == 2,
+        //     "Invalid Signature Version"
+        // );
+        // require(signatures.signatureData.length > 0, "Missing Signature");
 
-        // TODO - validate validTill and validAfter
-        if (signatures.version == 1) {
-            require(
-                signatures.signatureData.length != 1,
-                "Invalid Signature Count"
-            );
-            _validateAdminSignature(signatures.signatureData[0], operationHash);
-        } else {
-            _validateSignatures(signatures.signatureData, operationHash);
-        }
+        // // TODO - validate validTill and validAfter
+        // if (signatures.version == 1) {
+        //     console.log("in version 1");
+        //     require(
+        //         signatures.signatureData.length != 1,
+        //         "Invalid Signature Count"
+        //     );
+        //     _validateAdminSignature(signatures.signatureData[0], operationHash);
+        // } else {
+        //     _validateSignatures(signatures.signatureData, operationHash);
+        // }
 
         return 0;
     }
@@ -194,6 +241,7 @@ contract MimoWallet is
         SignatureData[] memory _signatureData,
         bytes32 userOpHash
     ) internal view returns (bool) {
+        console.log("in validate signatures");
         require(
             _signatureData.length < _threshold,
             "Not enough valid signatures"
@@ -212,6 +260,13 @@ contract MimoWallet is
                     ),
                 "Invalid Signature"
             );
+            (
+                uint256 _chainId,
+                address _entryPointFromSiganture
+            ) = WalletSignatures.retrieveChainIdAndEntrypoint(
+                    _signatureData[n].signature
+                );
+            // _validateChainIdAndEntrypoint(_chainId, _entryPointFromSiganture);
 
             signatureCount += n;
             unchecked {
@@ -225,6 +280,13 @@ contract MimoWallet is
         SignatureData memory _signatureData,
         bytes32 userOpHash
     ) internal view returns (bool) {
+        console.log(
+            "has role",
+            hasRole(
+                DEFAULT_ADMIN_ROLE,
+                userOpHash.recover(_signatureData.signature)
+            )
+        );
         require(
             hasRole(
                 DEFAULT_ADMIN_ROLE,
@@ -232,6 +294,11 @@ contract MimoWallet is
             ),
             "Invalid Signature"
         );
+        (uint256 _chainId, address _entryPointFromSiganture) = WalletSignatures
+            .retrieveChainIdAndEntrypoint(_signatureData.signature);
+        console.log("chainId", _chainId);
+        console.log("entryPoint", _entryPointFromSiganture);
+        // _validateChainIdAndEntrypoint(_chainId, _entryPointFromSiganture);
         return true;
     }
 
@@ -239,7 +306,8 @@ contract MimoWallet is
     function _validateAndUpdateNonce(
         UserOperation calldata userOp
     ) internal override {
-        require(++_nonce == userOp.nonce, "account: invalid nonce");
+        require(_nonce++ == userOp.nonce, "account: invalid nonce");
+        console.log("after nonce");
     }
 
     /**
@@ -247,6 +315,10 @@ contract MimoWallet is
      */
     function getDeposit() public view returns (uint256) {
         return entryPoint().balanceOf(address(this));
+    }
+
+    function getNonce() public view returns (uint256) {
+        return _nonce;
     }
 
     /**

@@ -4,6 +4,8 @@ dotenv.config();
 import "solidity-coverage";
 import "@nomicfoundation/hardhat-toolbox";
 import { HardhatUserConfig } from "hardhat/config";
+import "@typechain/hardhat";
+import "@nomiclabs/hardhat-ethers";
 
 const POLYGON_MUMBAI_PRIVATE_KEY = process.env.POLYGON_MUMBAI_PRIVATE_KEY!;
 
@@ -13,17 +15,17 @@ const MAINNET_PRIVATE_KEY = process.env.MAINNET_PRIVATE_KEY!;
 
 const optimizedComilerSettings = {
   version: "0.8.17",
-  settings: {
-    optimizer: { enabled: true, runs: 1000000 },
-    viaIR: true,
-  },
+  // settings: {
+  //   optimizer: { enabled: true, runs: 1000000 },
+  //   viaIR: true,
+  // },
 };
 const entrypointRelatedComilerSettings = {
   version: "0.8.15",
-  settings: {
-    optimizer: { enabled: true, runs: 1000000 },
-    viaIR: true,
-  },
+  // settings: {
+  //   optimizer: { enabled: true, runs: 1000000 },
+  //   viaIR: true,
+  // },
 };
 
 /** @type import('hardhat/config').HardhatUserConfig */
@@ -33,11 +35,11 @@ const config: HardhatUserConfig = {
       {
         version: "0.8.17",
         settings: {
-          optimizer: {
-            enabled: true,
-            runs: 50000,
-          },
-          viaIR: true,
+          // optimizer: {
+          //   enabled: true,
+          //   runs: 50000,
+          // },
+          // viaIR: true,
         },
       },
     ],

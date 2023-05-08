@@ -1,7 +1,7 @@
 {
-  "actionToken": "",
-  "actionTokenPaymaster": "",
+  "actionToken": "0x61a000C0767922506BACeA6D7ECf13E7FbD3c337",
+  "actionTokenPaymaster": "0x4889bAb651311DC06bFa7f9a3BDd92fad6d7a9E3",
   "aaFactory": "0x665cf455371e12EA5D49a7bA295cD060f436D95e",
-  "aaInstance": "",
+  "aaInstance": "0x252f4a2eDf7917c4fb04cf9402Fb5724A8B5085f",
   "entryPoint": "0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789"
 }

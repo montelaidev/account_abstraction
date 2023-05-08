@@ -192,4 +192,155 @@ describe("AA Tests", function () {
       ).to.gt("0x".length);
     });
   });
+
+  describe.only("MimoAccountWallet", () => {
+    it("admin can call execute or executeBatch", async () => {
+      const { mimoAccountWallet, accountOwner, guardian1 } =
+        await deployFixtures();
+
+      // sending eth to the account
+      const tx = {
+        to: mimoAccountWallet.address,
+        value: 1000,
+      };
+      await accountOwner.sendTransaction(tx);
+
+      const balanceBefore = await ethers.provider.getBalance(
+        mimoAccountWallet.address
+      );
+      await mimoAccountWallet.execute(
+        guardian1.address,
+        500,
+        ethers.constants.HashZero
+      );
+
+      const balanceAfter = await ethers.provider.getBalance(
+        mimoAccountWallet.address
+      );
+      expect(balanceBefore.sub(balanceAfter).eq(ethers.BigNumber.from(500))).to
+        .be.true;
+
+      await mimoAccountWallet.executeBatch(
+        [guardian1.address, guardian1.address],
+        ["250", "250"],
+        [ethers.constants.HashZero, ethers.constants.HashZero]
+      );
+
+      const balanceAfterBatch = await ethers.provider.getBalance(
+        mimoAccountWallet.address
+      );
+      expect(balanceAfterBatch.eq(ethers.BigNumber.from(0))).to.be.true;
+    });
+    it("unauthorized cannot call execute or executeBatch", async () => {
+      const { account2, mimoAccountWallet } = await deployFixtures();
+
+      await expect(
+        mimoAccountWallet
+          .connect(account2)
+          .execute(account2.address, 1000, ethers.constants.HashZero)
+      ).to.be.revertedWith("MimoAccountWallet: not Owner or EntryPoint");
+    });
+
+    it("should be able to withdraw any erc20 token", async () => {
+      const { accountOwner, swapActionToken, mimoAccountWallet } =
+        await deployFixtures();
+
+      await swapActionToken.mint(mimoAccountWallet.address, 1000);
+
+      const balanceBefore = await swapActionToken.balanceOf(
+        accountOwner.address
+      );
+
+      await mimoAccountWallet.execute(
+        swapActionToken.address,
+        0,
+        swapActionToken.interface.encodeFunctionData("transfer", [
+          accountOwner.address,
+          1000,
+        ])
+      );
+
+      const balanceAfter = await swapActionToken.balanceOf(
+        accountOwner.address
+      );
+      expect(balanceAfter).to.equal(balanceBefore.add(1000));
+      expect(await swapActionToken.balanceOf(mimoAccountWallet.address)).to.eq(
+        0
+      );
+    });
+    it("should be able to withdraw ether", async () => {
+      const { accountOwner, account2, mimoAccountWallet } =
+        await deployFixtures();
+
+      await accountOwner.sendTransaction({
+        to: mimoAccountWallet.address,
+        value: 1000,
+      });
+
+      const balanceBefore = await ethers.provider.getBalance(account2.address);
+
+      await mimoAccountWallet.execute(
+        account2.address,
+        1000,
+        ethers.constants.HashZero
+      );
+
+      const balanceAfter = await ethers.provider.getBalance(account2.address);
+      expect(balanceAfter.sub(balanceBefore)).to.equal(1000);
+    });
+
+    describe.only("validateSignatures", () => {
+      const actualGasPrice = 1e9;
+      it("should be able to validate an admin signature", async () => {
+        // gets unused signer
+        const entrypointEOA = (await ethers.getSigners())[10];
+        const {
+          mimoAccountWallet,
+          accountOwner,
+          accountOwnerWallet,
+          entryPoint,
+        } = await deployFixtures({ mockEntrypointEOA: entrypointEOA.address });
+
+        const callGasLimit = 200000;
+        const verificationGasLimit = 100000;
+        const maxFeePerGas = 3e9;
+        const chainId = await ethers.provider
+          .getNetwork()
+          .then((net) => net.chainId);
+        console.log("chainid", chainId);
+
+        const userOp = await signUserOp(
+          fillUserOpDefaults({
+            sender: mimoAccountWallet.address,
+            callGasLimit,
+            verificationGasLimit,
+            maxFeePerGas,
+          }),
+          accountOwnerWallet,
+          entrypointEOA.address,
+          chainId
+        );
+
+        console.log("userop", userOp);
+        console.log("account owner", accountOwnerWallet.address);
+        console.log("account owner", accountOwner.address);
+        console.log("entryPointEOA", entrypointEOA.address);
+
+        const userOpHash = getUserOpHash(
+          userOp,
+          entrypointEOA.address,
+          chainId
+        );
+        const expectedPay =
+          actualGasPrice * (callGasLimit + verificationGasLimit);
+
+        const result = await mimoAccountWallet
+          .connect(entrypointEOA)
+          .callStatic.validateUserOp(userOp, userOpHash, expectedPay, {
+            gasPrice: actualGasPrice,
+          });
+        console.log(result);
+
+        expect(result.eq(0)).to.be.true;
+      });
 });

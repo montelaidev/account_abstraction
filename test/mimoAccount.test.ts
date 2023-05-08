@@ -1,16 +1,35 @@
 const { expect } = require("chai");
 import { ethers } from "hardhat";
+import { Wallet } from "ethers";
 import {
   MimoWallet__factory,
   MimoWalletFactory,
   EntryPoint,
   SwapActionToken,
   MimoWallet,
+  ActionTokenPaymaster,
 } from "../src/types";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
+import {
+  signUserOp,
+  fillUserOpDefaults,
+  getUserOpHash,
+  fillAndSign,
+} from "./utils/UserOp";
+import {
+  defaultAbiCoder,
+  hexConcat,
+  hexZeroPad,
+  hexlify,
+  parseEther,
+} from "ethers/lib/utils";
 
-describe("Token contract", function () {
-  async function deployFixtures(): Promise<{
+describe("AA Tests", function () {
+  async function deployFixtures({
+    mockEntrypointEOA,
+  }: {
+    mockEntrypointEOA?: string;
+  } = {}): Promise<{
     factory: MimoWalletFactory;
     entryPoint: EntryPoint;
     deployer: SignerWithAddress;
@@ -22,8 +41,10 @@ describe("Token contract", function () {
     swapActionToken: SwapActionToken;
     mimoAccountAddress: string;
     mimoAccountWallet: MimoWallet;
+    accountOwnerWallet: Wallet;
+    tokenPaymaster: ActionTokenPaymaster;
   }> {
-    const [deployer, accountOwner, paymaster, account2, guardian1, guardian2] =
+    const [accountOwner, deployer, paymaster, account2, guardian1, guardian2] =
       await ethers.getSigners();
 
     const EntryPoint = await ethers.getContractFactory("EntryPoint", deployer);
@@ -35,7 +56,7 @@ describe("Token contract", function () {
       deployer
     );
     const mimoWalletFactory = await MimoWalletFactory.deploy(
-      entryPoint.address
+      mockEntrypointEOA ?? entryPoint.address
     );
     await mimoWalletFactory.deployed();
 
@@ -46,6 +67,8 @@ describe("Token contract", function () {
     const swapActionToken = await SwapActionToken.deploy();
     await swapActionToken.deployed();
 
+    console.log(`Swap Action Token deployed to ${swapActionToken.address}`);
+
     const mimoAccountAddress = await mimoWalletFactory.getAddress(
       accountOwner.address,
       1337
@@ -55,6 +78,56 @@ describe("Token contract", function () {
     const mimoAccountWallet = MimoWallet__factory.connect(
       mimoAccountAddress,
       accountOwner
+    );
+
+    console.log(`AA Wallet Deployed to ${mimoAccountWallet.address}`);
+
+    // mock oracle to always return 0
+    const ActionTokenOracle = await ethers.getContractFactory(
+      "ActionPriceOracle",
+      deployer
+    );
+
+    const actionTokenOracle = await ActionTokenOracle.deploy();
+    await actionTokenOracle.deployed();
+
+    const TokenPaymasterFactory = await ethers.getContractFactory(
+      "ActionTokenPaymaster",
+      deployer
+    );
+    const tokenPaymaster = await TokenPaymasterFactory.deploy(
+      entryPoint.address,
+      deployer.address,
+      mimoWalletFactory.address
+    );
+    await tokenPaymaster.deployed();
+    console.log(`Paymaster deployed to ${tokenPaymaster.address}`);
+
+    await tokenPaymaster.addStake(1, { value: parseEther("2") });
+    await entryPoint.depositTo(tokenPaymaster.address, {
+      value: parseEther("100"),
+    });
+
+    await tokenPaymaster.setActionToken([swapActionToken.address]);
+    await swapActionToken.mint(accountOwner.address, 1000);
+
+    await mimoAccountWallet.execute(
+      swapActionToken.address,
+      0,
+      swapActionToken.interface.encodeFunctionData("approve", [
+        tokenPaymaster.address,
+        1000,
+      ])
+    );
+
+    const accountOwnerWallet = ethers.Wallet.fromMnemonic(
+      "test test test test test test test test test test test junk"
+    );
+
+    console.log(
+      "compare owner to wallet",
+      accountOwner.address,
+      accountOwnerWallet.address
     );
 
     return {
@@ -69,6 +142,8 @@ describe("Token contract", function () {
       mimoAccountWallet,
       swapActionToken,
       mimoAccountAddress,
+      accountOwnerWallet,
+      tokenPaymaster,
     };
   }
 

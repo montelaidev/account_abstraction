@@ -6,7 +6,8 @@
   "scripts": {
     "compile": "npx hardhat compile",
     "test": "npx hardhat test test/*",
-    "deploy:aafactory": "npx hardhat run scripts/deployAAFactory.ts --network mumbai"
+    "deploy:aafactory": "npx hardhat run scripts/deployAAFactory.ts --network mumbai",
+    "deploy:aaAccount": "npx hardhat run ./scripts/deployAAAccount.ts --network mumbai"
   },
   "keywords": [],
   "author": "Monte Lai",

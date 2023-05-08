@@ -25,6 +25,5 @@ async function main() {
 // and properly handle errors.
 main().catch((error) => {
   console.error(error);
-  a;
   process.exitCode = 1;
 });

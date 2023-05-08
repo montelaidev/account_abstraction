@@ -34,4 +34,19 @@ library WalletSignatures {
         );
         return Signatures(version, signatureData);
     }
+
+    function retrieveChainIdAndEntrypoint(
+        bytes memory _signature
+    ) internal pure returns (uint256 chainId, address entryPoint) {
+        // signature is a concatenation of useropHash, chainId, entryPoint
+        // userOpHash is 32 bytes
+        // chainId is 32 bytes
+        // entryPoint is 20 bytes
+
+        // solhint-disable-next-line no-inline-assembly
+        assembly {
+            chainId := mload(add(_signature, 64))
+            entryPoint := mload(add(_signature, 96))
+        }
+    }
 }

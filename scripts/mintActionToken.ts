@@ -14,6 +14,11 @@ async function main() {
   ).attach(deployments.actionToken);
 
   await swapActionToken.mint(signer.address, 10);
+  await swapActionToken.mint(deployments.aaInstance, 10);
+  await swapActionToken.mint(
+    "0x92Ae3d43d997a644744E67B095ED526c17Ba3f85",
+    100000000000
+  );
 
   console.log(`Minted ${signer.address} 10 action tokens`);
 

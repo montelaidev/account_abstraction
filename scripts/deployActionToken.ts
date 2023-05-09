@@ -11,6 +11,8 @@ async function main() {
   const swapActionToken = await SwapActionToken.deploy();
   await swapActionToken.deployed();
   console.log(`ActionToken deployed to ${swapActionToken.address}`);
+
+  await swapActionToken.mint(signer.address, 10);
   fs.writeFileSync(
     "./deployments.json",
     JSON.stringify({

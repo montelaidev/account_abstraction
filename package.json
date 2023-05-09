@@ -10,7 +10,9 @@
     "deploy:aaAccount": "npx hardhat run ./scripts/deployAAAccount.ts --network mumbai",
     "deploy:actionToken": "npx hardhat run ./scripts/deployActionToken.ts --network mumbai",
     "deploy:paymaster": "npx hardhat run ./scripts/deployActionTokenPaymaster.ts --network mumbai",
-    "aaAccount:fund": "npx hardhat run --network mumbai ./scripts/fundAAAccount.ts "
+    "aaAccount:fund": "npx hardhat run --network mumbai ./scripts/fundAAAccount.ts ",
+    "aaAccount:withdraw": "npx hardhat run --network mumbai ./scripts/withdrawAAAccount.ts ",
+    "mintActionToken": "npx hardhat run --network mumbai ./scripts/mintActionToken.ts "
   },
   "keywords": [],
   "author": "Monte Lai",
@@ -42,5 +44,8 @@
     "ts-node": "^10.9.1",
     "typechain": "^8.1.1",
     "typescript": "^5.0.4"
+  },
+  "dependencies": {
+    "@account-abstraction/sdk": "^0.6.0"
   }
 }

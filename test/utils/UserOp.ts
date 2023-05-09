@@ -2,6 +2,7 @@ import {
   arrayify,
   defaultAbiCoder,
   hexDataSlice,
+  hexlify,
   keccak256,
   parseEther,
 } from "ethers/lib/utils";
@@ -143,14 +144,14 @@ export function getUserOpHash(
 
 export const DefaultsForUserOp: UserOperation = {
   sender: AddressZero,
-  nonce: 0,
+  nonce: hexlify(0),
   initCode: "0x",
   callData: "0x",
-  callGasLimit: 0,
-  verificationGasLimit: 150000, // default verification gas. will add create2 cost (3200+200*length) if initCode exists
-  preVerificationGas: 21000, // should also cover calldata cost.
-  maxFeePerGas: 0,
-  maxPriorityFeePerGas: 1e9,
+  callGasLimit: hexlify(0),
+  verificationGasLimit: hexlify(150000), // default verification gas. will add create2 cost (3200+200*length) if initCode exists
+  preVerificationGas: hexlify(50000), // should also cover calldata cost.
+  maxFeePerGas: hexlify(0),
+  maxPriorityFeePerGas: hexlify(1e9),
   paymasterAndData: "0x",
   signature: "0x",
 };
@@ -171,10 +172,13 @@ export async function signUserOp(
     keccak256_buffer(msg1),
     Buffer.from(arrayify(signer.privateKey))
   );
-  
+
   const signedMessage1 = await signer.signMessage(arrayify(message));
 
-  const recoveredSigner = ethers.utils.verifyMessage(arrayify(message), signedMessage1);
+  const recoveredSigner = ethers.utils.verifyMessage(
+    arrayify(message),
+    signedMessage1
+  );
   console.log(
     "matches? ",
     recoveredSigner,

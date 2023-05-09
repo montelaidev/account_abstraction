@@ -12,8 +12,9 @@
     "deploy:paymaster": "npx hardhat run ./scripts/deployActionTokenPaymaster.ts --network mumbai",
     "aaAccount:fund": "npx hardhat run --network mumbai ./scripts/fundAAAccount.ts ",
     "aaAccount:withdraw": "npx hardhat run --network mumbai ./scripts/withdrawAAAccount.ts ",
-    "mintActionToken": "npx hardhat run --network mumbai ./scripts/mintActionToken.ts ",
-    "aaAccount:swapWithPaymaster": "npx hardhat run --network mumbai ./scripts/swapUsingPaymaster.ts"
+    "aaAccount:swapWithPaymaster": "npx hardhat run --network mumbai ./scripts/swapUsingPaymaster.ts",
+    "token:mintAAAccount": "npx hardhat run --network mumbai ./scripts/token-mint-to-aaAccount.ts ",
+    "token:approveAAAccount": "npx hardhat run --network mumbai ./scripts/token-approve-aaAccount.ts "
   },
   "keywords": [],
   "author": "Monte Lai",

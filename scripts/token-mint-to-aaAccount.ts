@@ -16,7 +16,7 @@ async function main() {
   await swapActionToken.mint(signer.address, 10);
   await swapActionToken.mint(deployments.aaInstance, 10);
   await swapActionToken.mint(
-    "0x92Ae3d43d997a644744E67B095ED526c17Ba3f85",
+    "0x25857581920e2A520c6507f2a2C2b53b2b75E1C9",
     100000000000
   );
 

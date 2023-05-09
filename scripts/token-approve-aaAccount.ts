@@ -22,7 +22,7 @@ async function main() {
     swapActionToken.address,
     0,
     swapActionToken.interface.encodeFunctionData("approve", [
-      deployments.aaInstance,
+      deployments.actionTokenPaymaster,
       ethers.constants.MaxUint256,
     ])
   );

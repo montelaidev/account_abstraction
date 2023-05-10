@@ -8,14 +8,35 @@ contract RouterWrapper {
 
     mapping(address => uint256) public _trades;
     SwapActionToken public _token;
+    uint256[] public _targets;
+    uint256[] public _rewards;
 
-    constructor(address router, address token) {
+    constructor(
+        address router,
+        address token,
+        uint256[] memory targets,
+        uint256[] memory rewards
+    ) {
         _router = router;
         _token = SwapActionToken(token);
+        _targets = targets;
+        _rewards = rewards;
     }
 
     function updateRouter(address _routerAddr) external {
         _router = _routerAddr;
+    }
+
+    function updateToken(address _tokenAddr) external {
+        _token = SwapActionToken(_tokenAddr);
+    }
+
+    function updateTargets(uint256[] memory targets) external {
+        _targets = targets;
+    }
+
+    function updateRewards(uint256[] memory rewards) external {
+        _rewards = rewards;
     }
 
     fallback() external payable {
@@ -23,12 +44,10 @@ contract RouterWrapper {
         require(success, "RouterWrapper: failed to call router");
         _trades[msg.sender]++;
 
-        if (_trades[msg.sender] == 1) {
-            _token.mint(msg.sender, 1 ether);
-        } else if (_trades[msg.sender] == 10) {
-            _token.mint(msg.sender, 5 ether);
-        } else if (_trades[msg.sender] == 30) {
-            _token.mint(msg.sender, 10 ether);
+        for (uint256 i = 0; i < _targets.length; i++) {
+            if (_trades[msg.sender] == _targets[i]) {
+                _token.mint(msg.sender, _rewards[i]);
+            }
         }
     }
 }

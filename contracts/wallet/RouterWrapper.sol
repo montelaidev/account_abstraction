@@ -23,6 +23,10 @@ contract RouterWrapper {
         _rewards = rewards;
     }
 
+    function getSwapCount(address user) public view returns (uint256) {
+        return _trades[user];
+    }
+
     function updateRouter(address _routerAddr) external {
         _router = _routerAddr;
     }

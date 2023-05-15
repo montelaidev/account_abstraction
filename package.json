@@ -9,6 +9,7 @@
     "deploy:aafactory": "npx hardhat run scripts/deployAAFactory.ts --network mumbai",
     "deploy:aaAccount": "npx hardhat run ./scripts/deployAAAccount.ts --network mumbai",
     "deploy:actionToken": "npx hardhat run ./scripts/deployActionToken.ts --network mumbai",
+    "deploy:mockUSDC": "npx hardhat run ./scripts/deployUSDC.ts --network mumbai",
     "deploy:paymaster": "npx hardhat run ./scripts/deployActionTokenPaymaster.ts --network mumbai",
     "deploy:routerWrapper": "npx hardhat run ./scripts/deployRouterWrapper.ts --network mumbai",
     "aaAccount:fund": "npx hardhat run --network mumbai ./scripts/fundAAAccount.ts ",
@@ -16,7 +17,8 @@
     "aaAccount:swap": "npx hardhat run --network mumbai ./scripts/account-swap-using-paymaster.ts",
     "aaAccount:swapWithPaymaster": "npx hardhat run --network mumbai ./scripts/swapUsingPaymaster.ts",
     "token:mintAAAccount": "npx hardhat run --network mumbai ./scripts/token-mint-to-aaAccount.ts ",
-    "token:approveAAAccount": "npx hardhat run --network mumbai ./scripts/token-approve-aaAccount.ts "
+    "token:approveAAAccount": "npx hardhat run --network mumbai ./scripts/token-approve-aaAccount.ts ",
+    "token:balanceOfAAAccount":"npx hardhat run --network mumbai ./scripts/token-balanceOf-aaAccount.ts"
   },
   "keywords": [],
   "author": "Monte Lai",

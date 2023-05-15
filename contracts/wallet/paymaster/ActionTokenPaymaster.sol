@@ -20,6 +20,7 @@ contract ActionTokenPaymaster is ITokenPaymaster, Ownable {
 
     mapping(address => IPriceOracle) private supportedToken;
     mapping(address => bool) private actionToken;
+    mapping(address => address) private sponsoredAddressToActionToken;
 
     // calculated cost of the postOp
     uint256 private constant COST_OF_POST = 40000;
@@ -226,14 +227,16 @@ contract ActionTokenPaymaster is ITokenPaymaster, Ownable {
         console.log("sender", sender);
 
         if (actionToken[token]) {
-            // TODO: need to validate that the method called is to swap router
-            // userOp.callData --> execute in mimoWallet --> with nested call data there
             if (userOp.callData.length > 2) {
                 (address targetAddr, , ) = abi.decode(
                     userOp.callData[4:],
                     (address, uint256, bytes)
                 );
                 console.log("targetAddr", targetAddr);
+                require(
+                    sponsoredAddressToActionToken[targetAddr] == token,
+                    "ActionTokenPaymaster: not sponsored address"
+                );
             }
 
             console.log("in condition");
